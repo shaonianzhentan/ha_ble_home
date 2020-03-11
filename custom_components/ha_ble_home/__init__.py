@@ -1,4 +1,4 @@
-import os, time, re, uuid, logging, json, datetime, threading, bluetooth
+import os, time, re, uuid, logging, json, datetime, threading, bluetooth, ctypes, inspect
 from homeassistant.helpers.event import track_time_interval, async_call_later
 from homeassistant.components.http import HomeAssistantView
 
@@ -7,7 +7,7 @@ _LOGGER = logging.getLogger(__name__)
 DOMAIN = 'ha_ble_home'
 VERSION = '1.0'
 # 定时器时间
-TIME_BETWEEN_UPDATES = datetime.timedelta(seconds=12)
+TIME_BETWEEN_UPDATES = datetime.timedelta(seconds=60)
 
 def setup(hass, config):
     cfg = config[DOMAIN]
@@ -22,6 +22,8 @@ def setup(hass, config):
 -------------------------------------------------------------------''')
     
     ble = BleScan(hass, cfg)
+    hass.data[DOMAIN] = ble
+
     track_time_interval(hass, ble.interval, TIME_BETWEEN_UPDATES)    
         
     return True
@@ -36,6 +38,7 @@ class BleScan():
         self.counter = {}
         for key in cfg:
             self.counter[key] = 0
+        _LOGGER.debug('初始化蓝牙扫描器')
 
     def scan(self):
         hass = self.hass
@@ -50,21 +53,41 @@ class BleScan():
                     if ble_name is not None:
                         # 这里改变实体状态
                         hass.states.set(key, 'home')
-                        _LOGGER.info("【" + ble_name + "】【" + mac + "】检测在家")
+                        _LOGGER.debug("【" + ble_name + "】【" + mac + "】检测在家")
                         self.counter[key] = 0
+                        time.sleep(10)
                     else:
                         self.counter[key] += 1
-                        _LOGGER.info("【" + mac + "】没有找到蓝牙设备")
-                        if self.counter[key] > 10:
-                            # 10秒检测不在家，则设置为不在家
+                        _LOGGER.debug("【" + mac + "】没有找到蓝牙设备")
+                        if self.counter[key] > 6:
+                            # 60秒检测不在家，则设置为不在家
+                            self.counter[key] = 0
                             hass.states.set(key, 'not_home')
-                            _LOGGER.info("【" + key + "】检测不在家")
-            time.sleep(1)
+                            _LOGGER.debug("【" + key + "】检测不在家")
+                        # 当没有检测到，1秒钟再检测
+                        time.sleep(1)
 
     def interval(self, now):
-        _LOGGER.info('开始扫描')
-        if self.thread != None:
-            self.thread.join()
-
+        if self.thread is not None:
+            _LOGGER.debug('终止线程')
+            stop_thread(self.thread)
+            time.sleep(3)
+        
+        _LOGGER.debug('开始扫描')
         self.thread = threading.Thread(target=self.scan, args=())
         self.thread.start()   
+
+
+def _async_raise(tid, exctype):
+    tid = ctypes.c_long(tid)
+    if not inspect.isclass(exctype):
+        exctype = type(exctype)
+    res = ctypes.pythonapi.PyThreadState_SetAsyncExc(tid, ctypes.py_object(exctype))
+    if res == 0:
+        raise ValueError("invalid thread id")
+    elif res != 1:
+        ctypes.pythonapi.PyThreadState_SetAsyncExc(tid, None)
+        raise SystemError("PyThreadState_SetAsyncExc failed")
+
+def stop_thread(thread):
+    _async_raise(thread.ident, SystemExit)
