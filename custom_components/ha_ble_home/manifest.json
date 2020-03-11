@@ -1,0 +1,8 @@
+{
+    "domain": "ha_ble_home",
+    "name": "ha_ble_home",
+    "documentation": "https://github.com/shaonianzhentan/ha_ble_home",
+    "requirements": [],
+    "dependencies": [],
+    "codeowners": []
+  }
