@@ -70,8 +70,11 @@ class BleScan():
     def interval(self, now):
         if self.thread is not None:
             _LOGGER.debug('终止线程')
-            stop_thread(self.thread)
-            time.sleep(3)
+            try:
+                stop_thread(self.thread)
+                time.sleep(3)
+            except Exception as ex:
+                print(ex)
         
         _LOGGER.debug('开始扫描')
         self.thread = threading.Thread(target=self.scan, args=())
