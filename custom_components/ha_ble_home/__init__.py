@@ -32,6 +32,10 @@ class BleScan():
         self.thread = None
         self.hass = hass
         self.cfg = cfg
+        # 初始化计数器
+        self.counter = {}
+        for key in cfg:
+            self.counter[key] = 0
 
     def scan(self):
         hass = self.hass
@@ -46,8 +50,15 @@ class BleScan():
                     if ble_name is not None:
                         # 这里改变实体状态
                         hass.states.set(key, 'home')
+                        _LOGGER.info("【" + ble_name + "】【" + mac + "】检测在家")
+                        self.counter[key] = 0
                     else:
-                        _LOGGER.info("没有找到蓝牙设备【" + mac + "】")
+                        self.counter[key] += 1
+                        _LOGGER.info("【" + mac + "】没有找到蓝牙设备")
+                        if self.counter[key] > 10:
+                            # 10秒检测不在家，则设置为不在家
+                            hass.states.set(key, 'not_home')
+                            _LOGGER.info("【" + key + "】检测不在家")
             time.sleep(1)
 
     def interval(self, now):
