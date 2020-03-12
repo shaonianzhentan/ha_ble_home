@@ -24,6 +24,12 @@ def setup(hass, config):
     ble = BleScan(hass, cfg)
     hass.data[DOMAIN] = ble
 
+    # 如果HA关闭，则中止扫描
+    def homeassistant_stop_event(event):
+        ble.is_stop = True
+
+    hass.bus.listen("homeassistant_stop", homeassistant_stop_event)
+
     track_time_interval(hass, ble.interval, TIME_BETWEEN_UPDATES)    
         
     return True
@@ -34,6 +40,7 @@ class BleScan():
         self.thread = None
         self.hass = hass
         self.cfg = cfg
+        self.is_stop = False
         # 初始化计数器
         self.counter = {}
         for key in cfg:
@@ -68,14 +75,20 @@ class BleScan():
                         time.sleep(1)
 
     def interval(self, now):
+        
+
         if self.thread is not None:
             _LOGGER.debug('终止线程')
             try:
                 stop_thread(self.thread)
+                self.thread = None
                 time.sleep(3)
             except Exception as ex:
                 print(ex)
-        
+
+        if self.is_stop == True:
+            return
+
         _LOGGER.debug('开始扫描')
         self.thread = threading.Thread(target=self.scan, args=())
         self.thread.start()   
