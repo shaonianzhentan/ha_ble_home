@@ -5,7 +5,7 @@ from homeassistant.components.http import HomeAssistantView
 _LOGGER = logging.getLogger(__name__)
 
 DOMAIN = 'ha_ble_home'
-VERSION = '1.0'
+VERSION = '1.1'
 # 定时器时间
 TIME_BETWEEN_UPDATES = datetime.timedelta(seconds=60)
 
@@ -59,7 +59,7 @@ class BleScan():
                     ble_name = bluetooth.lookup_name(mac)
                     if ble_name is not None:
                         # 这里改变实体状态
-                        hass.states.set(key, 'home')
+                        hass.states.set(key, 'home', attributes=state.attributes)
                         _LOGGER.debug("【" + ble_name + "】【" + mac + "】检测在家")
                         self.counter[key] = 0
                         time.sleep(10)
@@ -69,7 +69,7 @@ class BleScan():
                         if self.counter[key] > 6:
                             # 60秒检测不在家，则设置为不在家
                             self.counter[key] = 0
-                            hass.states.set(key, 'not_home')
+                            hass.states.set(key, 'not_home', attributes=state.attributes)
                             _LOGGER.debug("【" + key + "】检测不在家")
                         # 当没有检测到，1秒钟再检测
                         time.sleep(1)
