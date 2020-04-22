@@ -1,0 +1,4 @@
+url: http://192.168.1.113:8123
+token: HA长密钥
+ha_ble_home:
+  'person.xiaobai': 'A8:9C:ED:F0:E2:97'
