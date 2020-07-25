@@ -2,10 +2,16 @@ import os, time, re, uuid, logging, json, datetime, threading, bluetooth, ctypes
 from homeassistant.helpers.event import track_time_interval, async_call_later
 from homeassistant.components.http import HomeAssistantView
 
+# 获取MAC地址
+def get_mac_address():
+    mac=uuid.UUID(int = uuid.getnode()).hex[-12:]
+    return "-".join([mac[e:e+2] for e in range(0,11,2)])
+
 _LOGGER = logging.getLogger(__name__)
 
 DOMAIN = 'ha_ble_home'
 VERSION = '1.1'
+URL = '/' + DOMAIN +'-api-' + get_mac_address()
 # 定时器时间
 TIME_BETWEEN_UPDATES = datetime.timedelta(seconds=60)
 
@@ -17,22 +23,52 @@ def setup(hass, config):
 
     蓝牙在家【作者QQ：635147515】
     版本：''' + VERSION + '''    
+    API地址：''' + URL + '''
     项目地址：https://github.com/shaonianzhentan/ha_ble_home
     
 -------------------------------------------------------------------''')
     
-    ble = BleScan(hass, cfg)
-    hass.data[DOMAIN] = ble
+    # 判断是否支持蓝牙设备
+    val = os.system('hciconfig name')
+    # 支持蓝牙设备（val=256表示未找到）
+    if val == 0:
+        ble = BleScan(hass, cfg)
+        hass.data[DOMAIN] = ble
+        # 如果HA关闭，则中止扫描
+        def homeassistant_stop_event(event):
+            ble.is_stop = True
 
-    # 如果HA关闭，则中止扫描
-    def homeassistant_stop_event(event):
-        ble.is_stop = True
+        hass.bus.listen("homeassistant_stop", homeassistant_stop_event)
 
-    hass.bus.listen("homeassistant_stop", homeassistant_stop_event)
+        track_time_interval(hass, ble.interval, TIME_BETWEEN_UPDATES)    
+    else:
+        # 没有蓝牙设备，使用API监听
+        hass.http.register_view(HassGateView)
 
-    track_time_interval(hass, ble.interval, TIME_BETWEEN_UPDATES)    
-        
     return True
+
+class HassGateView(HomeAssistantView):
+
+    url = URL
+    name = DOMAIN
+    requires_auth = False
+    
+    async def post(self, request):
+        hass = request.app["hass"]
+        res = await request.json()
+        if 'entity_id' in res and 'state' in res:
+            # 实体ID
+            _entity_id = res['entity_id']
+            # 实体状态
+            _state = res['state']
+            # 获取当前实体
+            state = hass.states.get(_entity_id)
+            if state is not None:                
+                # 这里改变实体状态
+                hass.states.set(_entity_id, _state, attributes=state.attributes)
+                return self.json({'code':0, 'msg': '【' + state.attributes['friendly_name'] + '】状态设置成功'})
+
+        return self.json({'code':1, 'msg': '参数不正确'})
 
 class BleScan():
 
