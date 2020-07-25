@@ -19,3 +19,9 @@ ha_ble_home:
   'person.xiaobai': 'A8:9C:ED:F0:E2:97'
 
 ```
+
+
+# 更新日志
+
+## v1.2
+- 不支持蓝牙时使用API接口修改状态

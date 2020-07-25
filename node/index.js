@@ -1,7 +1,7 @@
 const path = require('path')
 const fs = require('fs')
 const YAML = require('yaml')
-const HomeAssistant = require('homeassistant');
+const fetch = require('node-fetch')
 const { PythonShell } = require('python-shell')
 
 // 蓝牙检测
@@ -15,12 +15,15 @@ class DeviceTracker {
     }
 
     set_state(state) {
-        let arr = this.device.split('.')
-        hass.states.get(arr[0], arr[1]).then(res => {
-            res['state'] = state
-            hass.states.update(arr[0], arr[1], res);
+        fetch(config.url, {
+            method: 'POST',
+            body: JSON.stringify({
+                entity_id: this.device,
+                state
+            })
+        }).then(() => {
+            console.log(new Date().toLocaleString(), this.device, state)
         })
-        console.log(new Date().toLocaleString(), this.device, state)
     }
 
     update() {
@@ -60,15 +63,6 @@ class DeviceTracker {
 const file = fs.readFileSync('./config.yaml', 'utf8')
 const config = YAML.parse(file)
 // 读取URL
-let url = new URL(config.url)
-
-const hass = new HomeAssistant({
-    host: `${url.protocol}//${url.hostname}`,
-    port: url.port,
-    token: config.token,
-    ignoreCert: false
-});
-
 let devices = config.ha_ble_home
 let arr = []
 Object.keys(devices).forEach(k => {
